@@ -6,7 +6,7 @@ class KalmanFilter(object):
         self.dim_z = dim_z
 
         self.x = np.zeros((dim_x, 1))       # state
-        self.z = np.zeros((dim_x, 1))
+        self.z = np.zeros((dim_z, 1))       # measurement
         self.F = np.eye(dim_x)              # system(transition) matrix
         self.H = np.zeros((dim_z, dim_x))   # measurement matrix
         self.P = np.eye(dim_x)              # state estimation error matrix
