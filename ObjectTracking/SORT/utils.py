@@ -12,6 +12,7 @@ class KalmanFilter(object):
         self.P = np.eye(dim_x)              # state estimation error matrix
         self.Q = np.eye(dim_x)              # process noise matrix
         self.R = np.eye(dim_z)              # measurement noise matrix
+        self.K = np.zeros((dim_x, dim_z))   # kalman gain
 
     # time update
     def predict(self):
@@ -38,6 +39,7 @@ class KalmanFilter(object):
         PHT = np.dot(P, H.T)
         # K = PH'inv(HPH' + R)
         K = np.dot(PHT, np.linalg.inv(np.dot(H, PHT) + R))
+        self.K = K
 
         # update estimate with measurement z
         x = self.x
