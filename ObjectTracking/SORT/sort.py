@@ -232,9 +232,7 @@ if __name__ == "__main__":
 
     if not os.path.exists('output'):
         os.makedirs('output')
-    # test_cnt = 10
-    # test_fps_sum = 0
-    # for _ in range(test_cnt):
+
     pattern = os.path.join(args.seq_path, phase, '*', 'det', 'det.txt') 
     for seq_dets_fn in glob.glob(pattern):
         BoxTracker.count = 0
@@ -274,10 +272,8 @@ if __name__ == "__main__":
                     fig.canvas.flush_events()
                     plt.draw()
                     ax1.cla()
+                    
     print("Total Tracking took: %.3f seconds for %d frames or %.1f FPS" % (total_time, total_frames, total_frames / total_time))
-    #     test_fps_sum += total_frames / total_time
-    # test_fps_sum /= test_cnt
-    # print("Result : %.2f"%test_fps_sum)
 
     if(display):
         print("Note: to get real runtime results run without the option: --display")
