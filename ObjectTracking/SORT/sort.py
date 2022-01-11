@@ -102,7 +102,11 @@ class Sort(object):
 
         self.trackers: List[BoxTracker] = []
 
+        self.frame_count = 0
+
     def update(self, dets):
+        self.frame_count += 1
+
         def notValidPred(scale, bbox):
             return scale <= 0 or np.any(np.isnan(bbox))
 
@@ -133,8 +137,8 @@ class Sort(object):
         trk_res = []
         for i, trk in reversed(list(enumerate(self.trackers))):
             bbox = trk.get_state()
-            if trk.hits >= self.t_probation: # 추적을 t_probation 동안 유지한 경우만 결과 사용
-                trk_res.append([*bbox, trk.id])
+            if trk.hits >= self.t_probation or self.frame_count <= self.t_probation: # 추적을 t_probation 동안 유지한 경우만 결과 사용
+                trk_res.append([*bbox, trk.id + 1])
             if trk.time_since_update > self.t_lost: # t_lost 동안 추적에 실패하면 추적 중단
                 self.trackers.pop(i)
         return np.array(trk_res, dtype=object)
@@ -228,11 +232,13 @@ if __name__ == "__main__":
 
     if not os.path.exists('output'):
         os.makedirs('output')
+
     pattern = os.path.join(args.seq_path, phase, '*', 'det', 'det.txt') 
     for seq_dets_fn in glob.glob(pattern):
+        BoxTracker.count = 0
         motracker = Sort(t_lost=args.max_age, 
-                         t_probation=args.min_hits,
-                         iou_threshold=args.iou_threshold)
+                        t_probation=args.min_hits,
+                        iou_threshold=args.iou_threshold)
         
         seq_dets = np.loadtxt(seq_dets_fn, delimiter=',')
         seq = seq_dets_fn[pattern.find('*'):].split(os.path.sep)[0]
@@ -266,7 +272,7 @@ if __name__ == "__main__":
                     fig.canvas.flush_events()
                     plt.draw()
                     ax1.cla()
-
+                    
     print("Total Tracking took: %.3f seconds for %d frames or %.1f FPS" % (total_time, total_frames, total_frames / total_time))
 
     if(display):
