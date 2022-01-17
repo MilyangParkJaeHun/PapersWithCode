@@ -125,7 +125,16 @@ class Sort(object):
         for i in reversed(error_preds):
             self.trackers.pop(i)
         
-        matches, unmatched_dets, unmatched_trks = self.match_dets_with_trks(dets, preds) # 검출 결과와 추적 예측 결과 매칭
+        if len(dets) == 0 and len(preds):
+            return np.array([])
+        elif len(dets) == 0:
+            matches, unmatched_dets = [], []
+            unmatched_trks = list(range(len(self.trackers)))
+        elif len(preds) == 0:
+            matches, unmatched_trks = [], []
+            unmatched_dets = list(range(len(dets)))
+        else:
+            matches, unmatched_dets, unmatched_trks = self.match_dets_with_trks(dets, preds) # 검출 결과와 추적 예측 결과 매칭
 
         for m in matches: # 매칭에 성공한 검출 결과를 기반으로 추적기 업데이트
             self.trackers[m[1]].update(dets[m[0]])

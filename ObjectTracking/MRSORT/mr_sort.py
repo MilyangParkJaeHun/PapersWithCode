@@ -148,7 +148,11 @@ class MrSort(object):
         self.frame_height = 480
         self.fov = 113
 
+        self.frame_count = 0
+
     def update(self, dets, odom=[0,0,0]):
+        self.frame_count += 1
+
         def notValidPred(scale, bbox):
             return scale <= 0 or np.any(np.isnan(bbox))
 
@@ -170,7 +174,16 @@ class MrSort(object):
         for i in reversed(error_preds):
             self.trackers.pop(i)
         
-        matches, unmatched_dets, unmatched_trks = self.match_dets_with_trks(dets, preds) # 검출 결과와 추적 예측 결과 매칭
+        if len(dets) == 0 and len(preds):
+            return np.array([])
+        elif len(dets) == 0:
+            matches, unmatched_dets = [], []
+            unmatched_trks = list(range(len(self.trackers)))
+        elif len(preds) == 0:
+            matches, unmatched_trks = [], []
+            unmatched_dets = list(range(len(dets)))
+        else:
+            matches, unmatched_dets, unmatched_trks = self.match_dets_with_trks(dets, preds) # 검출 결과와 추적 예측 결과 매칭
 
         for m in matches: # 매칭에 성공한 검출 결과를 기반으로 추적기 업데이트
             self.trackers[m[1]].update(dets[m[0]])
@@ -182,8 +195,8 @@ class MrSort(object):
         trk_res = []
         for i, trk in reversed(list(enumerate(self.trackers))):
             bbox = trk.get_state()
-            if trk.hits >= self.t_probation: # 추적을 t_probation 동안 유지한 경우만 결과 사용
-                trk_res.append([*bbox, trk.id])
+            if trk.hits >= self.t_probation or self.frame_count <= self.t_probation: # 추적을 t_probation 동안 유지한 경우만 결과 사용
+                trk_res.append([*bbox, trk.id + 1])
             if trk.time_since_update > self.t_lost + trk.age/10: # 일정 동안 추적에 실패하면 추적 중단, 추적을 오래 유지했을수록 추적 실패 용인
                 self.trackers.pop(i)
         return np.array(trk_res, dtype=object)
@@ -342,8 +355,6 @@ if __name__ == "__main__":
 
         with open(os.path.join(output_path, '%s.txt' % (seq)), 'w') as out_file:
             print("Processing %s." % (seq))
-            print("Image width  : ", frame_width)
-            print("Image height : ", frame_height)
 
             for frame in range(int(seq_dets[:, 0].max())):
                 frame += 1  # detection and frame numbers begin at 1
