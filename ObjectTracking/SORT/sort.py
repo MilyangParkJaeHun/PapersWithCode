@@ -19,6 +19,14 @@ from typing import List
 np.random.seed(0)
 
 def x_to_bbox(x):
+    """[summary]
+
+    Args:
+        x ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     u, v, s, r = x[:4]
     w = np.sqrt(s * r)
     h = s / w
@@ -30,6 +38,14 @@ def x_to_bbox(x):
     return np.array([xmin, ymin, xmax, ymax])
 
 def bbox_to_z(bbox):
+    """[summary]
+
+    Args:
+        bbox ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     xmin, ymin, xmax, ymax, _ = bbox
     w = xmax - xmin
     h = ymax - ymin
@@ -40,8 +56,21 @@ def bbox_to_z(bbox):
     return np.array([u, v, s, r]).reshape((4, 1))
 
 class BoxTracker(object):
+    """[summary]
+
+    Args:
+        object ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     count = 0
     def __init__(self, bbox):
+        """[summary]
+
+        Args:
+            bbox ([type]): [description]
+        """
         self.id = BoxTracker.count
         BoxTracker.count += 1
 
@@ -71,6 +100,11 @@ class BoxTracker(object):
         self.time_since_update = 0
 
     def predict(self):
+        """[summary]
+
+        Returns:
+            [type]: [description]
+        """
         if((self.kf.x[6]+self.kf.x[2])<=0):
             self.kf.x[6] *= 0.0
         self.kf.predict()
@@ -84,57 +118,98 @@ class BoxTracker(object):
         return next_bbox
 
     def update(self, bbox):
+        """[summary]
+
+        Args:
+            bbox ([type]): [description]
+        """
         self.kf.update(bbox_to_z(bbox))
         self.time_since_update = 0
         self.hits += 1
 
     def get_state(self):
+        """[summary]
+
+        Returns:
+            [type]: [description]
+        """
         return x_to_bbox(self.kf.x)
     
     def get_scale(self):
+        """[summary]
+
+        Returns:
+            [type]: [description]
+        """
         return self.kf.x[2]
 
-class Sort(object):
+class Sort(object): # 다중 객체 추적을 수행하는 Class
     def __init__(self, t_lost=1, t_probation=3, iou_threshold=0.3):
+        """ 다중 객체 추적기 생성자
+
+        Args:
+            t_lost (int, optional): 최대 추적 실패 용인 횟수, t_lost 동안 추적에 실패하면 추적을 중단.
+            t_probation (int, optional): 초기 속도 관찰을 위한 period, 추적기가 처음 생성되면 t_probation 동안 
+                                        추적만 유지하고 추적 결과는 출력하지 않음 
+            iou_threshold (float, optional): 매칭에 필요한 최소 iou score, 객체 검출 박스와 추적 예측 박스의
+                                            iou score 가 iou_threshold 를 넘지 못하면 매칭 실패로 판단
+        """
         self.t_lost = t_lost
         self.t_probation = t_probation
         self.iou_threshold = iou_threshold
 
-        self.trackers: List[BoxTracker] = []
+        self.trackers: List[BoxTracker] = [] # 단일 객체 추적기 리스트
 
-        self.frame_count = 0
+        self.frame_count = 0 # 처리한 프레임 수
 
     def update(self, dets):
+        """ 객체 검출 결과를 기반으로 새로운 추적 결과 도출
+
+        Args:
+            dets ([xmin, ymin, xmax, ymax]): 객체 검출 결과 리스트
+
+        Returns:
+            [xmin, ymin, xmax, ymax, id]: 추적 결과 리스트
+        """
         self.frame_count += 1
 
         def notValidPred(scale, bbox):
+            """ 비정상적 예측 결과 필터링
+
+            Args:
+                scale ([float]): 예측된 bbox 의 넓이
+                bbox ([xmin, ymin, xmax, ymax]): 예측된 bbox 정보
+
+            Returns:
+                [bool]: 비정상적이면 True, 정상적이면 False
+            """
             return scale <= 0 or np.any(np.isnan(bbox))
 
-        preds = []
-        error_preds = []
-        for i, trk in enumerate(self.trackers): # 추적 예측 단계
-            pred_bbox = trk.predict()
+        preds = [] # 예측 결과가 저장되는 리스트
+        error_preds = [] # 비정상 예측 결과를 도출한 추적기의 index 리스트
+        for i, trk in enumerate(self.trackers): # 모든 단일 추적기의 다음 위치 예측
+            pred_bbox = trk.predict() # 다음 위치 예측
             s = trk.get_scale()
 
-            if notValidPred(s, pred_bbox):
+            if notValidPred(s, pred_bbox): # 비정상 결과 필터링
                 error_preds.append(i)
             else:
                 preds.append(pred_bbox)
         preds = np.array(preds).reshape(-1,4)
 
-        for i in reversed(error_preds):
+        for i in reversed(error_preds): # 비정상적 결과를 도출한 추적기 제거
             self.trackers.pop(i)
         
-        if len(dets) == 0 and len(preds):
+        if len(dets) == 0 and len(preds) == 0: # 객체 검출과 예측 결과가 존재하지 않는다면 매칭 실패
             return np.array([])
-        elif len(dets) == 0:
+        elif len(dets) == 0: # 객체 검출이 안됐다면 현재 존재하는 모든 추적기는 매칭 실패
             matches, unmatched_dets = [], []
             unmatched_trks = list(range(len(self.trackers)))
-        elif len(preds) == 0:
+        elif len(preds) == 0: # 정상적인 예측 결과가 존재하지 않는다면 모든 객체 검출 bbox 는 매칭 실패
             matches, unmatched_trks = [], []
             unmatched_dets = list(range(len(dets)))
-        else:
-            matches, unmatched_dets, unmatched_trks = self.match_dets_with_trks(dets, preds) # 검출 결과와 추적 예측 결과 매칭
+        else: # 객체 검출 bbox 가 존재하고 예측 결과가 존재한다면 최적 매칭 계산 시도
+            matches, unmatched_dets, unmatched_trks = self.match_dets_with_trks(dets, preds) # 검출 결과와 추적 예측 결과 최적 매칭
 
         for m in matches: # 매칭에 성공한 검출 결과를 기반으로 추적기 업데이트
             self.trackers[m[1]].update(dets[m[0]])
@@ -153,7 +228,22 @@ class Sort(object):
         return np.array(trk_res, dtype=object)
 
     def match_dets_with_trks(self, dets, preds):
+        """[summary]
+
+        Args:
+            dets ([type]): [description]
+            preds ([type]): [description]
+        """
         def cal_iou(bb_a, bb_b): # iou score 계산
+            """[summary]
+
+            Args:
+                bb_a ([type]): [description]
+                bb_b ([type]): [description]
+
+            Returns:
+                [type]: [description]
+            """
             bb_b = np.expand_dims(bb_b, 0)
             bb_a = np.expand_dims(bb_a, 1)
 
@@ -245,9 +335,10 @@ if __name__ == "__main__":
     pattern = os.path.join(args.seq_path, phase, '*', 'det', 'det.txt') 
     for seq_dets_fn in glob.glob(pattern):
         BoxTracker.count = 0
-        motracker = Sort(t_lost=args.max_age, 
+
+        motracker = Sort(t_lost=args.max_age,
                         t_probation=args.min_hits,
-                        iou_threshold=args.iou_threshold)
+                        iou_threshold=args.iou_threshold) # 다중 객체 추적기 instance 생성 (motracker : Multiple Object Tracker)
         
         seq_dets = np.loadtxt(seq_dets_fn, delimiter=',')
         seq = seq_dets_fn[pattern.find('*'):].split(os.path.sep)[0]
@@ -267,7 +358,7 @@ if __name__ == "__main__":
                     plt.title(seq + ' Tracked Targets')
                 
                 start_time = time.time()
-                trackers = motracker.update(dets)
+                trackers = motracker.update(dets) # 객체 검출 결과를 입력으로 추적 결과 도출
                 cycle_time = time.time() - start_time
                 total_time += cycle_time
 
