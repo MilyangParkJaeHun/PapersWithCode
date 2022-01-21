@@ -174,7 +174,7 @@ class MrSort(object):
         for i in reversed(error_preds):
             self.trackers.pop(i)
         
-        if len(dets) == 0 and len(preds):
+        if len(dets) == 0 and len(preds) == 0:
             return np.array([])
         elif len(dets) == 0:
             matches, unmatched_dets = [], []
