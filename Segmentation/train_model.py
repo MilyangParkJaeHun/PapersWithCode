@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import copy
+import os
 import time
 
 import torch
@@ -7,10 +8,54 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torchvision import models
+from torchvision import models, transforms
 
 from data_utils import CustomDataset
 from transformation import *
+
+color_map = (
+    (63, 63, 63),
+    (0, 102, 0),
+    (204, 255, 204),
+    (255, 102, 102),
+    (0, 255, 255),
+    (204, 204, 51),
+    (51, 51, 204),
+    (0, 255, 64),
+    (0, 102, 153),
+    (153, 0, 102),
+    (204, 51, 204),
+    (0, 165, 255),
+    (3, 107, 252),
+    (128, 128, 0))
+
+saved_path = ''
+
+
+def convert_index_to_bgr(index_mat):
+    bgr_image = cv2.merge((index_mat, index_mat, index_mat))
+
+    for index, color in enumerate(color_map):
+        bgr_image[index_mat == index] = color
+    bgr_image[index_mat > index] = (0, 0, 0)
+
+    return bgr_image
+
+def save_prediction(name, image, label, predict):
+    image = image.squeeze(0).cpu().numpy()
+    image = image.transpose(1, 2, 0)
+    image = 256 * ((image * 0.5) + 0.5)
+    image = image.astype(np.uint8)
+
+    label = label.squeeze(0).cpu().numpy()
+    label = convert_index_to_bgr(label)
+
+    predict = predict.squeeze(0).cpu().numpy()
+    predict = convert_index_to_bgr(predict)
+
+    prediction_image = np.concatenate([image, label, predict], 1)
+
+    cv2.imwrite(os.path.join(saved_path, name), prediction_image)
 
 
 def train(model, data_loader, criterion, optimizer, scheduler, num_epochs=25):
@@ -42,24 +87,29 @@ def train(model, data_loader, criterion, optimizer, scheduler, num_epochs=25):
             for data in data_loader[phase]:
                 inputs = data['image']
                 labels = data['label']
+                names = data['name']
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs['out'], 1)
-                    loss = criterion(outputs['out'], labels)
+                    outputs = model(inputs)['out']
+                    _, predicts = torch.max(outputs, 1)
+                    loss = criterion(outputs, labels)
 
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
 
+                    if phase == 'valid':
+                        for name, image, label, predict in zip(names, inputs, labels, predicts):
+                            save_prediction(name, image, label, predict)
+
                 batch_loss = loss.item() * inputs.size(0)
                 running_loss += batch_loss
-                running_corrects += torch.sum(preds == labels.data)
-                print(f'{phase} Loss: {batch_loss:.4f}')
+                running_corrects += torch.sum(predicts == labels.data)
+
             if phase == 'train':
                 scheduler.step()
 
@@ -82,6 +132,9 @@ def train(model, data_loader, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 if __name__ == '__main__':
+    if not os.path.exists(saved_path):
+        os.makedirs(saved_path)
+
     data_params = dict()
     data_params['root_dir'] = '/home/park/DATA/2022_11_23/trails'
     data_params['image_size'] = (128, 256)
@@ -92,14 +145,14 @@ if __name__ == '__main__':
     data_transforms = {
         'train': transforms.Compose([
             ConvertLabel(),
-            Rescale(data_params['image_size']),
             ToTensor(),
+            Rescale(data_params['image_size']),
             Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ]),
         'valid': transforms.Compose([
             ConvertLabel(),
-            Rescale(data_params['image_size']),
             ToTensor(),
+            Rescale(data_params['image_size']),
             Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
     }
