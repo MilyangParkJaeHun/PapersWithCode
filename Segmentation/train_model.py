@@ -12,6 +12,7 @@ from torchvision import models, transforms
 
 from data_utils import CustomDataset
 from transformation import *
+from SemanticSegmentation.FCN.FCN import VGGNet, FCN8s
 
 color_map = (
     (63, 63, 63),
@@ -29,7 +30,7 @@ color_map = (
     (3, 107, 252),
     (128, 128, 0))
 
-saved_path = ''
+saved_path = '/home/park/workspace/PapersWithCode/Segmentation/validation'
 
 
 def convert_index_to_bgr(index_mat):
@@ -179,7 +180,11 @@ if __name__ == '__main__':
                             # pin_memory_device=device,
                             prefetch_factor=2)
 
-    model = models.segmentation.fcn_resnet50(num_classes=14).to(device)
+    # model = models.segmentation.fcn_resnet50(num_classes=14).to(device)
+    vgg16 = VGGNet('vgg16', 3).to(device)
+    model = FCN8s(vgg16, data_params['num_class']).to(device)
+
+    # model = VGGNet16(3).to(device)
 
     # for param_tensor in model.state_dict():
     #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
