@@ -30,7 +30,7 @@ color_map = (
     (3, 107, 252),
     (128, 128, 0))
 
-saved_path = '/home/park/workspace/PapersWithCode/Segmentation/validation'
+saved_path = ''
 
 
 def convert_index_to_bgr(index_mat):
@@ -95,7 +95,9 @@ def train(model, data_loader, criterion, optimizer, scheduler, num_epochs=25):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)['out']
+                    outputs = model(inputs)
+                    if isinstance(outputs, dict):
+                        outputs = outputs['out']
                     _, predicts = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
 
@@ -137,7 +139,7 @@ if __name__ == '__main__':
         os.makedirs(saved_path)
 
     data_params = dict()
-    data_params['root_dir'] = '/home/park/DATA/2022_11_23/trails'
+    data_params['root_dir'] = ''
     data_params['image_size'] = (128, 256)
     data_params['num_class'] = 14
 
@@ -183,8 +185,6 @@ if __name__ == '__main__':
     # model = models.segmentation.fcn_resnet50(num_classes=14).to(device)
     vgg16 = VGGNet('vgg16', 3).to(device)
     model = FCN8s(vgg16, data_params['num_class']).to(device)
-
-    # model = VGGNet16(3).to(device)
 
     # for param_tensor in model.state_dict():
     #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
