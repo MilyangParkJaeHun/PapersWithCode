@@ -1,7 +1,9 @@
 from __future__ import print_function, division
 import copy
 import os
+import sys
 import time
+sys.path.append(os.environ['WORKSPACE_PATH'])
 
 import torch
 import torch.nn as nn
@@ -12,7 +14,8 @@ from torchvision import models, transforms
 
 from data_utils import CustomDataset
 from transformation import *
-from SemanticSegmentation.FCN.FCN import VGGNet, FCN8s
+from Segmentation.SemanticSegmentation.FCN.net import FCN8s
+from BackboneNetwork.VGGNet.net import VGGNet
 
 color_map = (
     (63, 63, 63),
@@ -30,7 +33,7 @@ color_map = (
     (3, 107, 252),
     (128, 128, 0))
 
-saved_path = ''
+saved_path = os.path.join(os.environ['WORKSPACE_PATH'], 'validation/fcn_vgg19')
 
 
 def convert_index_to_bgr(index_mat):

@@ -1,15 +1,16 @@
 from __future__ import print_function, division
 import cv2
 import os
+import sys
 import glob
+sys.path.append(os.environ['WORKSPACE_PATH'])
+
 import torch
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
-from transformation import *
+from Segmentation.transformation import *
 
 
 class CustomDataset(Dataset):
