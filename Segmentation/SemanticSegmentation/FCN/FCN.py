@@ -47,10 +47,9 @@ class FCN8s(nn.Module):
         h = self.bn1(h + x4)
 
         h = self.relu(self.deconv2(h))
-        h = self.bn2(h + x4)
+        h = self.bn2(h + x3)
 
-        h = self.relu(self.deconv3(h))
-        h = self.bn3(h + x3)
+        h = self.bn3(self.relu(self.deconv3(h)))
         h = self.bn4(self.relu(self.deconv4(h)))
         h = self.bn5(self.relu(self.deconv5(h)))
         output = self.classifier(h)
@@ -66,8 +65,6 @@ class VGGNet(nn.Module):
         mode = mode.lower()
         self.cfg = self.make_cfgs()[mode]
         self.features, self.output_point = self.make_layers()
-
-        print(self.output_point)
 
     def make_layers(self, batch_norm = False):
         layers = []
@@ -130,8 +127,7 @@ def test_model(model, data_loader):
         labels = labels.to(device)
 
         outputs = model(inputs)
-
-        print(outputs['x5'].shape)
+        print(outputs.shape)
         break
 
 
@@ -140,7 +136,7 @@ if __name__ == '__main__':
 
     data_params = dict()
     data_params['root_dir'] = '/home/park/DATA/2022_11_23/trails'
-    data_params['image_size'] = (416, 416)
+    data_params['image_size'] = (128, 256)
     data_params['num_class'] = 14
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -169,12 +165,10 @@ if __name__ == '__main__':
                             # pin_memory_device=device,
                             prefetch_factor=2)
 
-    model = VGGNet('vgg16', 3).to(device)
-
-    test_model(model, data_loader)
-
-    fcn = FCN8s(model, 14).to(device)
+    vgg = VGGNet('vgg16', 3).to(device)
+    fcn = FCN8s(vgg, 14).to(device)
+    test_model(fcn, data_loader)
 
     # print(vgg16)
-    for param_tensor in fcn.state_dict():
-        print(param_tensor, "\t", fcn.state_dict()[param_tensor].size())
+    # for param_tensor in fcn.state_dict():
+    #     print(param_tensor, "\t", fcn.state_dict()[param_tensor].size())
