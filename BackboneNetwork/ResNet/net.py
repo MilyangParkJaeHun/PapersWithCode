@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 
@@ -89,7 +90,7 @@ class Bottleneck(nn.Module):
         self.conv3 = conv1x1(
             in_channels=out_channels,
             out_channels=out_channels * Bottleneck.expansion)
-        self.bn3 = nn.BatchNorm2d(out_channels)
+        self.bn3 = nn.BatchNorm2d(out_channels * Bottleneck.expansion)
 
         if (stride != 1 or
             in_channels != out_channels * Bottleneck.expansion):
@@ -106,26 +107,26 @@ class Bottleneck(nn.Module):
 
     def forward(self, x):
         h = self.conv1(x)
-        h = self.bn1(x)
-        h = self.relu(x)
+        h = self.bn1(h)
+        h = self.relu(h)
 
-        h = self.conv2(x)
-        h = self.bn2(x)
-        h = self.relu(x)
+        h = self.conv2(h)
+        h = self.bn2(h)
+        h = self.relu(h)
 
-        h = self.conv3(x)
-        h = self.bn3(x)
+        h = self.conv3(h)
+        h = self.bn3(h)
 
         shortcut = self.downsample(x)
 
         h += shortcut
-        h = self.relu(x)
+        h = self.relu(h)
 
         return h
 
 
 class ResNet(nn.Module):
-    def __init__(self, mode, num_classes=14, start_channels=64):
+    def __init__(self, mode, num_classes, start_channels=64):
         super().__init__()
 
         mode = mode.lower()
@@ -137,7 +138,7 @@ class ResNet(nn.Module):
                 out_channels=64,
                 kernel_size=7,
                 stride=2,
-                padding=1,
+                padding=3,
                 bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True))
@@ -195,14 +196,14 @@ class ResNet(nn.Module):
         h = self.conv5_x(h)
 
         h = self.avg_pool(h)
-        h = self.flatten(h, 1)
+        h = torch.flatten(h, 1)
         h = self.fc(h)
 
         return h
 
 
 if __name__ == '__main__':
-    model = ResNet('resnet50', 14, 64)
+    model = ResNet('resnet50', 14)
 
     for param_tensor in model.state_dict():
         print(param_tensor, "\t", model.state_dict()[param_tensor].size())
