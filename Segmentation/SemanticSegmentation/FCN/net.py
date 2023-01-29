@@ -75,7 +75,7 @@ def test_model(model, data_loader):
 
 if __name__ == '__main__':
     data_params = dict()
-    data_params['root_dir'] = '/home/park/DATA/2022_11_23/trails'
+    data_params['root_dir'] = ''
     data_params['image_size'] = (128, 256)
     data_params['num_class'] = 14
 
